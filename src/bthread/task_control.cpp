@@ -155,6 +155,13 @@ static double get_cumulated_worker_time_from_this_with_tag(void* arg) {
     return c->get_cumulated_worker_time_with_tag(t);
 }
 
+static double get_cumulated_worker_cpu_usage_from_this_with_tag(void* arg) {
+    auto a = static_cast<CumulatedWithTagArgs*>(arg);
+    auto c = a->c;
+    auto t = a->t;
+    return c->get_cumulated_worker_cpu_usage_with_tag(t);
+}
+
 static int64_t get_cumulated_switch_count_from_this(void *arg) {
     return static_cast<TaskControl*>(arg)->get_cumulated_switch_count();
 }
@@ -207,6 +214,8 @@ int TaskControl::init(int concurrency) {
         _tagged_worker_usage_second.push_back(new bvar::PerSecond<bvar::PassiveStatus<double>>(
             "bthread_worker_usage", tag_str, _tagged_cumulated_worker_time[i], 1));
         _tagged_nbthreads.push_back(new bvar::Adder<int64_t>("bthread_count", tag_str));
+        _tagged_worker_cpu_usage.push_back(new bvar::PassiveStatus<double>(
+            get_cumulated_worker_cpu_usage_from_this_with_tag, new CumulatedWithTagArgs{this, i}));
     }
 
     // Make sure TimerThread is ready.
@@ -534,6 +543,19 @@ double TaskControl::get_cumulated_worker_time_with_tag(bthread_tag_t tag) {
         }
     }
     return cputime_ns / 1000000000.0;
+}
+
+double TaskControl::get_cumulated_worker_cpu_usage_with_tag(bthread_tag_t tag) {
+    BAIDU_SCOPED_LOCK(_modify_group_mutex);
+    const size_t ngroup = tag_ngroup(tag).load(butil::memory_order_relaxed);
+    auto& groups = tag_group(tag);
+    double total = 0;
+    for (size_t i = 0; i < ngroup; ++i) {
+        if (groups[i]) {
+            total += groups[i]->get_cpu_usage();
+        }
+    }
+    return total;
 }
 
 int64_t TaskControl::get_cumulated_switch_count() {

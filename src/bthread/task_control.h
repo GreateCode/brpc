@@ -80,6 +80,7 @@ public:
 
     double get_cumulated_worker_time();
     double get_cumulated_worker_time_with_tag(bthread_tag_t tag);
+    double get_cumulated_worker_cpu_usage_with_tag(bthread_tag_t tag);
     int64_t get_cumulated_switch_count();
     int64_t get_cumulated_signal_count();
 
@@ -153,6 +154,7 @@ private:
     std::vector<bvar::PassiveStatus<double>*> _tagged_cumulated_worker_time;
     std::vector<bvar::PerSecond<bvar::PassiveStatus<double>>*> _tagged_worker_usage_second;
     std::vector<bvar::Adder<int64_t>*> _tagged_nbthreads;
+    std::vector<bvar::PassiveStatus<double>*> _tagged_worker_cpu_usage;;
 
     std::vector<TaggedParkingLot> _pl;
 
